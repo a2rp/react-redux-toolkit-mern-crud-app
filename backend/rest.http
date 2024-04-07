@@ -1,0 +1,26 @@
+### test
+GET http://localhost:1198/api
+
+### get all items
+GET http://localhost:1198/api/items
+
+### add one item
+POST http://localhost:1198/api/items
+Content-Type: application/json
+
+{
+    "name": "ashish1",
+    "position": "software developer1"
+}
+
+### update one item
+PUT http://localhost:1198/api/items/6612a9c204c0cd50cafaa8cb
+Content-Type: application/json
+
+{
+    "name": "ashish2",
+    "position": "software developer2"
+}
+
+### delete one item
+DELETE http://localhost:1198/api/items/6612a9c204c0cd50cafaa8cb
