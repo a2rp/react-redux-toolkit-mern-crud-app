@@ -1,21 +1,45 @@
 require("dotenv").config();
 
-const express = require("express");
-const app = express();
 const cors = require("cors");
+const express = require("express");
 const { connectDB } = require("./src/utils/db.connect");
-const PORT = process.env.PORT || 3000;
 const itemRoutes = require("./src/routes/item.routes");
 
-app.use(express.json());
-app.use(cors());
+const app = express();
+const PORT = Number(process.env.PORT) || 1198;
+const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || "http://localhost:5173";
 
-connectDB();
+app.use(cors({ origin: CLIENT_ORIGIN }));
+app.use(express.json({ limit: "10kb" }));
 
 app.get("/api", (req, res) => {
-    res.status(200).send({ response: "api worked..." });
+  res.status(200).json({ response: "API is ready." });
 });
 app.use("/api", itemRoutes);
 
-app.listen(PORT, console.log(`server running  http://localhost:${PORT}`));
+app.use((error, req, res, next) => {
+  if (error.type === "entity.parse.failed") {
+    return res.status(400).json({ response: "Request body must contain valid JSON." });
+  }
+  if (error.type === "entity.too.large") {
+    return res.status(413).json({ response: "Request body is too large." });
+  }
 
+  console.error(error);
+  return res.status(500).json({ response: "An unexpected server error occurred." });
+});
+
+async function startServer() {
+  try {
+    const connection = await connectDB();
+    console.log(`MongoDB connected: ${connection.connection.host}`);
+    app.listen(PORT, () => {
+      console.log(`Server running at http://localhost:${PORT}`);
+    });
+  } catch (error) {
+    console.error(`Unable to connect to MongoDB: ${error.message}`);
+    process.exit(1);
+  }
+}
+
+startServer();

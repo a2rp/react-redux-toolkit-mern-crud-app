@@ -1,269 +1,240 @@
-import Table from "@mui/material/Table";
-import TableBody from "@mui/material/TableBody";
-import TableCell from "@mui/material/TableCell";
-import TableContainer from "@mui/material/TableContainer";
-import TableHead from "@mui/material/TableHead";
-import TableRow from "@mui/material/TableRow";
-import Paper from "@mui/material/Paper";
 import {
-    Alert,
-    Box,
-    Button,
-    Snackbar,
-    TextField,
-    Typography,
+  Alert,
+  Box,
+  Button,
+  IconButton,
+  Paper,
+  Snackbar,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TextField,
 } from "@mui/material";
-import { Edit as EditIcon, Delete as DeleteIcon } from "@mui/icons-material";
-import { useState } from "react";
+import { Delete as DeleteIcon, Edit as EditIcon } from "@mui/icons-material";
+import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import {
-    addEmployee,
-    fetchEmployee,
-    removeEmployee,
-    modifiedEmployee,
-    changeStateTrue,
-    changeStateFalse,
-} from "../feature/employeeSlice";
-import { useEffect } from "react";
 import Swal from "sweetalert2";
 import { toast } from "react-toastify";
+import {
+  addEmployee,
+  changeStateFalse,
+  changeStateTrue,
+  fetchEmployee,
+  modifiedEmployee,
+  removeEmployee,
+} from "../feature/employeeSlice";
+
+const errorMessage = (error) => (typeof error === "string" ? error : error?.message || "The request failed.");
 
 export default function Home() {
-    const dispatch = useDispatch();
-    const { loading, employeeList, error, updateState, response } = useSelector(
-        (state) => state.employeeKey
-    );
-    const [id, setId] = useState("");
-    const [name, setName] = useState("");
-    const [position, setPosition] = useState("");
+  const dispatch = useDispatch();
+  const { loading, employeeList, error, updateState, response } = useSelector(
+    (state) => state.employeeKey,
+  );
+  const [id, setId] = useState("");
+  const [name, setName] = useState("");
+  const [position, setPosition] = useState("");
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
 
-    useEffect(() => {
-        dispatch(fetchEmployee());
-    }, [dispatch]);
+  useEffect(() => {
+    dispatch(fetchEmployee());
+  }, [dispatch]);
 
-    const handleClick = (event) => {
-        event.preventDefault();
+  const validateForm = () => {
+    if (!name.trim()) {
+      toast.error("Enter an employee name.");
+      return false;
+    }
+    if (!position.trim()) {
+      toast.error("Enter a position.");
+      return false;
+    }
+    return true;
+  };
 
-        if (name.trim().length === 0) {
-            return toast.error("Name can not be empty");
-        }
-        if (position.trim().length === 0) {
-            return toast.error("Position can not be empty");
-        }
-        dispatch(addEmployee({
-            name: name,
-            position: position,
-        }));
-        handleClickSnackbar();
-        setName("");
-        setPosition("");
-    };
+  const clearForm = () => {
+    setId("");
+    setName("");
+    setPosition("");
+  };
 
-    const updateEmployee = (item) => {
-        setId(item._id);
-        setName(item.name);
-        setPosition(item.position);
-        dispatch(changeStateTrue());
-    };
+  const handleAdd = async (event) => {
+    event.preventDefault();
+    if (!validateForm()) return;
+    try {
+      await dispatch(addEmployee({ name: name.trim(), position: position.trim() })).unwrap();
+      clearForm();
+      setSnackbarOpen(true);
+    } catch (requestError) {
+      toast.error(errorMessage(requestError));
+    }
+  };
 
-    const updateForm = () => {
-        if (name.trim().length === 0) {
-            return toast.error("Name can not be empty");
-        }
-        if (position.trim().length === 0) {
-            return toast.error("Position can not be empty");
-        }
-        dispatch(modifiedEmployee({ id: id, name: name, position: position }));
-        dispatch(changeStateFalse());
-        handleClickSnackbar();
-        setId("");
-        setName("");
-        setPosition("");
-    };
+  const handleUpdate = async () => {
+    if (!validateForm()) return;
+    try {
+      await dispatch(modifiedEmployee({ id, name: name.trim(), position: position.trim() })).unwrap();
+      dispatch(changeStateFalse());
+      clearForm();
+      setSnackbarOpen(true);
+    } catch (requestError) {
+      toast.error(errorMessage(requestError));
+    }
+  };
 
-    const deleteEmployee = (id) => {
-        Swal.fire({
-            title: "Do you want to delete?",
-            showDenyButton: true,
-            showCancelButton: true,
-            confirmButtonText: "Yes",
-            denyButtonText: `No`
-        }).then((result) => {
-            if (result.isConfirmed) {
-                dispatch(removeEmployee(id));
-                handleClickSnackbar();
-            } else if (result.isDenied) {
-                // Swal.fire("Changes are not saved", "", "info");
-            }
-        });
-    };
+  const handleFormSubmit = (event) => {
+    event.preventDefault();
+    if (updateState) {
+      void handleUpdate();
+      return;
+    }
+    void handleAdd(event);
+  };
 
-    const [open, setOpen] = useState(false);
-    const handleClickSnackbar = () => {
-        setOpen(true);
-    };
-    const handleClose = () => {
-        setOpen(false);
-    };
+  const startUpdate = (item) => {
+    setId(item._id);
+    setName(item.name);
+    setPosition(item.position);
+    dispatch(changeStateTrue());
+  };
 
-    return (
+  const handleDelete = async (item) => {
+    const result = await Swal.fire({
+      title: `Delete ${item.name}?`,
+      text: "This employee record will be removed.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Delete",
+      cancelButtonText: "Cancel",
+    });
+    if (!result.isConfirmed) return;
+
+    try {
+      await dispatch(removeEmployee(item._id)).unwrap();
+      setSnackbarOpen(true);
+    } catch (requestError) {
+      toast.error(errorMessage(requestError));
+    }
+  };
+
+  const handleSnackbarClose = (_, reason) => {
+    if (reason !== "clickaway") setSnackbarOpen(false);
+  };
+
+  const successMessage = {
+    add: "Employee added successfully.",
+    update: "Employee updated successfully.",
+    delete: "Employee deleted successfully.",
+  }[response];
+
+  return (
+    <Box sx={{ display: "flex", justifyContent: "center", px: 2, pb: 6 }}>
+      <Box sx={{ width: "min(100%, 920px)" }}>
         <Box
-            sx={{
-                display: "flex",
-                justifyContent: "center",
-                mt: 5,
-                color: "white",
-                padding: "15px"
-            }}
+          component="form"
+          onSubmit={handleFormSubmit}
+          sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 1.5, mb: 2 }}
         >
-            <Box
-                sx={{
-                    // width: "55%",
-                    display: "flex",
-                    justifyContent: "center",
-                    flexDirection: "column",
-                    alignItems: "center"
+          <TextField
+            label="Name"
+            size="small"
+            required
+            inputProps={{ maxLength: 120 }}
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+          />
+          <TextField
+            label="Position"
+            size="small"
+            required
+            inputProps={{ maxLength: 120 }}
+            value={position}
+            onChange={(event) => setPosition(event.target.value)}
+          />
+          {updateState ? (
+            <>
+              <Button type="submit" variant="contained" size="small" onClick={handleUpdate} disabled={loading}>
+                Update
+              </Button>
+              <Button
+                type="button"
+                variant="text"
+                size="small"
+                onClick={() => {
+                  dispatch(changeStateFalse());
+                  clearForm();
                 }}
-            >
-                <Box
-                    sx={{
-                        display: "flex",
-                        flexDirection: "row",
-                        justifyContent: "flex-start",
-                        gap: "8px",
-                    }}
-                >
-                    <TextField
-                        sx={{ color: "white" }}
-                        variant="outlined"
-                        size="small"
-                        placeholder="Name"
-                        value={name}
-                        onChange={(e) => {
-                            setName(e.target.value);
-                        }}
-                    />
-                    <TextField
-                        variant="outlined"
-                        size="small"
-                        placeholder="Position"
-                        value={position}
-                        onChange={(e) => {
-                            setPosition(e.target.value);
-                        }}
-                    />
-                    {updateState ? (
-                        <Button
-                            variant="contained"
-                            color="primary"
-                            size="small"
-                            onClick={(e) => {
-                                updateForm(e);
-                            }}
-                        >
-                            Update
-                        </Button>
-                    ) : (
-                        <Button
-                            variant="contained"
-                            color="primary"
-                            size="small"
-                            onClick={(e) => {
-                                handleClick(e);
-                            }}
-                        >
-                            Add
-                        </Button>
-                    )}
-                </Box>
-                <TableContainer component={Paper} sx={{ marginTop: "16px", border: "0px solid #f00", width: "100%" }}>
-                    <Table aria-label="simple table" sx={{ border: "0px solid #f00" }}>
-                        <TableHead>
-                            <TableRow sx={{ backgroundColor: "black" }}>
-                                <TableCell align="left">
-                                    <Typography sx={{ fontWeight: 600, color: "white" }}>
-                                        No
-                                    </Typography>
-                                </TableCell>
-                                <TableCell align="left">
-                                    <Typography sx={{ fontWeight: 600, color: "white" }}>
-                                        Name
-                                    </Typography>
-                                </TableCell>
-                                <TableCell align="left">
-                                    <Typography sx={{ fontWeight: 600, color: "white" }}>
-                                        Position
-                                    </Typography>
-                                </TableCell>
-                                <TableCell align="left">
-                                    <Typography sx={{ fontWeight: 600, color: "white" }}>
-                                        Action
-                                    </Typography>
-                                </TableCell>
-                            </TableRow>
-                        </TableHead>
-                        <TableBody>
-                            {loading ? <TableCell> Loading... </TableCell> : null}
-                            {!loading && employeeList.length == 0 ? (
-                                <TableCell> No Records </TableCell>
-                            ) : null}
-                            {!loading && error ? <TableCell> {error} </TableCell> : null}
-                            {employeeList &&
-                                employeeList.map((item, index) => (
-                                    <TableRow
-                                        key={index}
-                                        sx={{
-                                            "&:last-child td, &:last-child th": { border: 0 },
-                                        }}
-                                    >
-                                        <TableCell align="left">
-                                            <Typography> {index + 1} </Typography>
-                                        </TableCell>
-                                        <TableCell align="left">
-                                            <Typography> {item.name} </Typography>
-                                        </TableCell>
-                                        <TableCell align="left">
-                                            <Typography> {item.position} </Typography>
-                                        </TableCell>
-                                        <TableCell align="left">
-                                            <Box sx={{ display: "flex", cursor: "pointer" }}>
-                                                <Box
-                                                    sx={{ color: "black", mr: 1 }}
-                                                    onClick={() => updateEmployee(item)}
-                                                >
-                                                    <EditIcon />
-                                                </Box>
-                                                <Box
-                                                    sx={{ color: "red" }}
-                                                    onClick={() => deleteEmployee(item._id)}
-                                                >
-                                                    <DeleteIcon />
-                                                </Box>
-                                            </Box>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                        </TableBody>
-                    </Table>
-                </TableContainer>
-            </Box>
-
-            <Snackbar
-                open={open}
-                autoHideDuration={5000}
-                onClose={handleClose}
-                anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
-            >
-                <Alert onClose={handleClose} severity="info" sx={{ width: "100%" }}>
-                    {response === "add"
-                        ? "employee added successfully"
-                        : response === "delete"
-                            ? "employee delete successfully"
-                            : response === "update"
-                                ? "employee update successfully"
-                                : null}
-                </Alert>
-            </Snackbar>
+                disabled={loading}
+              >
+                Cancel
+              </Button>
+            </>
+          ) : (
+            <Button variant="contained" size="small" type="submit" disabled={loading}>
+              Add employee
+            </Button>
+          )}
         </Box>
-    );
+
+        <TableContainer component={Paper} sx={{ overflowX: "auto" }}>
+          <Table aria-label="Employee records">
+            <TableHead>
+              <TableRow sx={{ backgroundColor: "#101820" }}>
+                <TableCell sx={{ color: "white", fontWeight: 700 }}>No.</TableCell>
+                <TableCell sx={{ color: "white", fontWeight: 700 }}>Name</TableCell>
+                <TableCell sx={{ color: "white", fontWeight: 700 }}>Position</TableCell>
+                <TableCell align="right" sx={{ color: "white", fontWeight: 700 }}>Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {loading && (
+                <TableRow>
+                  <TableCell colSpan={4} align="center">Loading employee records…</TableCell>
+                </TableRow>
+              )}
+              {!loading && error && (
+                <TableRow>
+                  <TableCell colSpan={4} role="alert">{error}</TableCell>
+                </TableRow>
+              )}
+              {!loading && !error && employeeList.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={4} align="center">No employee records yet.</TableCell>
+                </TableRow>
+              )}
+              {!loading && employeeList.map((item, index) => (
+                <TableRow key={item._id}>
+                  <TableCell>{index + 1}</TableCell>
+                  <TableCell>{item.name}</TableCell>
+                  <TableCell>{item.position}</TableCell>
+                  <TableCell align="right">
+                    <IconButton aria-label={`Edit ${item.name}`} onClick={() => startUpdate(item)} disabled={loading}>
+                      <EditIcon />
+                    </IconButton>
+                    <IconButton aria-label={`Delete ${item.name}`} onClick={() => handleDelete(item)} disabled={loading}>
+                      <DeleteIcon />
+                    </IconButton>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Box>
+
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={4000}
+        onClose={handleSnackbarClose}
+        anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
+      >
+        <Alert onClose={handleSnackbarClose} severity="success" sx={{ width: "100%" }}>
+          {successMessage}
+        </Alert>
+      </Snackbar>
+    </Box>
+  );
 }
