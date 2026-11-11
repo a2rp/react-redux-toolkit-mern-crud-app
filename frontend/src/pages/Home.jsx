@@ -156,7 +156,7 @@ export default function Home() {
           />
           {updateState ? (
             <>
-              <Button type="submit" variant="contained" size="small" onClick={handleUpdate} disabled={loading}>
+              <Button type="submit" variant="contained" size="small" disabled={loading}>
                 Update
               </Button>
               <Button
